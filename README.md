@@ -1,5 +1,7 @@
 # Password Manager
 
+# https://pmanager.onrender.com/login
+
 A secure and user-friendly password management system built using Flask, Supabase, and JavaScript. This application allows users to register, log in, and manage their credentials securely with features like password generation, deletion, and encryption.
 
 ---
@@ -45,8 +47,6 @@ Password Manager is a web-based application that helps users securely store and 
 
 ![Login Screenshot](./assets/readmeimg/login.png)  
 *User login page.*
-
-You can add your images to the `assets/images/` directory, or any subfolder in your project, and update the image paths in the README to match where you save them.
 
 ---
 
