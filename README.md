@@ -38,12 +38,12 @@ Password Manager is a web-based application that helps users securely store and 
 
 ### Dashboard
 
-![Dashboard Screenshot](./assets/images/dashboard.png)  
+![Dashboard Screenshot](./assets/readmeimg/login.png)  
 *The main user dashboard where credentials are managed.*
 
 ### Login Page
 
-![Login Screenshot](./assets/images/login.png)  
+![Login Screenshot](./assets/readmeimg/login.png)  
 *User login page.*
 
 You can add your images to the `assets/images/` directory, or any subfolder in your project, and update the image paths in the README to match where you save them.
