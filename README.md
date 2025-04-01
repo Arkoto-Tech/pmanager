@@ -38,7 +38,7 @@ Password Manager is a web-based application that helps users securely store and 
 
 ### Dashboard
 
-![Dashboard Screenshot](./assets/readmeimg/login.png)  
+![Dashboard Screenshot](./assets/readmeimg/dashboard.png)  
 *The main user dashboard where credentials are managed.*
 
 ### Login Page
