@@ -35,10 +35,6 @@ Password Manager is a web-based application that helps users securely store and 
 
 ## Screenshots
 
-### Homepage
-
-![Homepage Screenshot](./assets/images/homepage.png)  
-*Description of the homepage with options to log in or sign up.*
 
 ### Dashboard
 
