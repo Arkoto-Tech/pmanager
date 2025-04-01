@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-import sqlite3
-import hashlib
 import os
 import base64
 import psycopg2
+from psycopg2.extras import DictCursor
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -13,16 +12,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Database file
-DATABASE_URL = os.getenv("postgresql://postgres:[YOUR-PASSWORD]@db.ssojqqnicfcktsczyziv.supabase.co:5432/postgres")
+# Retrieve DATABASE_URL from environment variable
+DATABASE_URL = os.getenv("DATABASE_URL")  # Make sure this is set in your environment
 
 def get_db_connection():
-    return psycopg2.connect(DATABASE_URL)
+    """Establish a connection to PostgreSQL."""
+    return psycopg2.connect(DATABASE_URL, cursor_factory=DictCursor)
 
 def init_db():
-    conn = psycopg2.connect(DATABASE_URL)
+    """Initialize database tables."""
+    conn = get_db_connection()
     c = conn.cursor()
-    
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -30,7 +31,7 @@ def init_db():
             password_hash TEXT NOT NULL
         )
     ''')
-    
+
     c.execute('''
         CREATE TABLE IF NOT EXISTS credentials (
             id SERIAL PRIMARY KEY,
@@ -41,15 +42,18 @@ def init_db():
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
-    
+
     conn.commit()
     conn.close()
 
-# Constant salt for key derivation – in production, use a secure, per‑user salt stored safely.
+# Run DB initialization
+init_db()
+
+# Constant salt for key derivation
 SALT = b'some_constant_salt'
 
 def derive_key(master_password):
-    """Derive a 32-byte encryption key from the master password using PBKDF2 with SHA512."""
+    """Derive a 32-byte encryption key from the master password."""
     password_bytes = master_password.encode()
     kdf_instance = PBKDF2HMAC(
         algorithm=hashes.SHA512(),
@@ -71,7 +75,6 @@ def get_fernet():
 
 @app.route('/')
 def index():
-    # Redirect to dashboard if logged in, otherwise to login page
     if 'user_id' in session:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
@@ -82,21 +85,27 @@ def signup():
         username = request.form.get('username')
         master_password = request.form.get('master_password')
         confirm_password = request.form.get('confirm_password')
+
         if master_password != confirm_password:
             flash("Passwords do not match", "error")
             return render_template('signup.html')
+
         password_hash = generate_password_hash(master_password, method='pbkdf2:sha512')
+
         try:
-            with sqlite3.connect(DATABASE) as conn:
-                c = conn.cursor()
-                c.execute('INSERT INTO users (username, password_hash) VALUES (?, ?)', 
-                          (username, password_hash))
-                conn.commit()
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute('INSERT INTO users (username, password_hash) VALUES (%s, %s)',
+                      (username, password_hash))
+            conn.commit()
+            conn.close()
+            
             flash("Account created successfully! Please log in.", "success")
             return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
+        except psycopg2.IntegrityError:
             flash("Username already exists. Please choose another.", "error")
             return render_template('signup.html')
+
     return render_template('signup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -104,85 +113,85 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         master_password = request.form.get('master_password')
-        with sqlite3.connect(DATABASE) as conn:
-            c = conn.cursor()
-            c.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,))
-            user = c.fetchone()
-        if user and check_password_hash(user[1], master_password):
-            session['user_id'] = user[0]
+
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('SELECT id, password_hash FROM users WHERE username = %s', (username,))
+        user = c.fetchone()
+        conn.close()
+
+        if user and check_password_hash(user['password_hash'], master_password):
+            session['user_id'] = user['id']
             session['username'] = username
-            # Store the master password in session for encryption key derivation
             session['master_password'] = master_password
             return redirect(url_for('dashboard'))
         else:
             flash("Incorrect username or password", "error")
-            return render_template('login.html')
+
     return render_template('login.html')
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
+
     fernet = get_fernet()
     user_id = session['user_id']
-    
+
     if request.method == 'POST':
-        # Adding a new credential
         website = request.form.get('website')
         site_username = request.form.get('site_username')
         site_password = request.form.get('site_password')
+
         encrypted_password = fernet.encrypt(site_password.encode()).decode()
-        with sqlite3.connect(DATABASE) as conn:
-            c = conn.cursor()
-            c.execute('''
-                INSERT INTO credentials (user_id, website, site_username, site_password)
-                VALUES (?, ?, ?, ?)
-            ''', (user_id, website, site_username, encrypted_password))
-            conn.commit()
-        flash("Credential added successfully!", "success")
-        return redirect(url_for('dashboard'))
-    
-    # Retrieve credentials for the logged-in user
-    with sqlite3.connect(DATABASE) as conn:
+
+        conn = get_db_connection()
         c = conn.cursor()
         c.execute('''
-            SELECT id, website, site_username, site_password FROM credentials
-            WHERE user_id = ?
-        ''', (user_id,))
-        rows = c.fetchall()
-    
+            INSERT INTO credentials (user_id, website, site_username, site_password)
+            VALUES (%s, %s, %s, %s)
+        ''', (user_id, website, site_username, encrypted_password))
+        conn.commit()
+        conn.close()
+
+        flash("Credential added successfully!", "success")
+        return redirect(url_for('dashboard'))
+
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('SELECT id, website, site_username, site_password FROM credentials WHERE user_id = %s', (user_id,))
+    rows = c.fetchall()
+    conn.close()
+
     credentials = []
     for row in rows:
         try:
-            decrypted_password = fernet.decrypt(row[3].encode()).decode()
+            decrypted_password = fernet.decrypt(row['site_password'].encode()).decode()
         except Exception:
             decrypted_password = "Decryption Error"
+
         credentials.append({
-            'id': row[0],
-            'website': row[1],
-            'site_username': row[2],
+            'id': row['id'],
+            'website': row['website'],
+            'site_username': row['site_username'],
             'site_password': decrypted_password
         })
-    
+
     return render_template('dashboard.html', credentials=credentials, username=session.get('username'))
 
 @app.route('/delete/<int:cred_id>', methods=['POST'])
 def delete_credential(cred_id):
     if 'user_id' not in session:
         return redirect(url_for('login'))
+
     user_id = session['user_id']
-    with sqlite3.connect(DATABASE) as conn:
-        c = conn.cursor()
-        # Ensure the credential belongs to the current user before deleting
-        c.execute('SELECT id FROM credentials WHERE id = ? AND user_id = ?', (cred_id, user_id))
-        credential = c.fetchone()
-        if credential:
-            c.execute('DELETE FROM credentials WHERE id = ?', (cred_id,))
-            conn.commit()
-            flash("Credential deleted successfully.", "success")
-        else:
-            flash("Unauthorized action.", "error")
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM credentials WHERE id = %s AND user_id = %s', (cred_id, user_id))
+    conn.commit()
+    conn.close()
+
+    flash("Credential deleted successfully.", "success")
     return redirect(url_for('dashboard'))
 
 @app.route('/logout')
