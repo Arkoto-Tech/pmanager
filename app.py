@@ -123,6 +123,11 @@ def login():
                     c.execute('SELECT id, password_hash FROM users WHERE username = %s', (username,))
                     user = c.fetchone()
         conn.close()
+        
+@app.route('/delete_credential/<int:cred_id>', methods=['POST'])
+def delete_credential(cred_id):
+    # Your logic to delete the credential
+    pass
 
         if user and check_password_hash(user['password_hash'], master_password):
             session['user_id'] = user['id']
