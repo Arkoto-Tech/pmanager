@@ -16,6 +16,9 @@ app.secret_key = os.urandom(24)
 # Database file
 DATABASE_URL = os.getenv("postgresql://postgres:[YOUR-PASSWORD]@db.ssojqqnicfcktsczyziv.supabase.co:5432/postgres")
 
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
+
 def init_db():
     conn = psycopg2.connect(DATABASE_URL)
     c = conn.cursor()
