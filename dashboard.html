@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Password Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container dashboard-container">
+        <h2>Welcome, {{ username }}</h2>
+        <a href="{{ url_for('logout') }}" class="logout-button">Logout</a>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <ul class="flashes">
+            {% for category, message in messages %}
+              <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+        <h3>Your Saved Credentials</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Website</th>
+                    <th>Site Username</th>
+                    <th>Site Password</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cred in credentials %}
+                <tr>
+                    <td>{{ cred.website }}</td>
+                    <td>{{ cred.site_username }}</td>
+                    <td>{{ cred.site_password }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('delete_credential', cred_id=cred.id) }}" onsubmit="return confirm('Are you sure you want to delete this credential?');">
+                            <button type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <h3>Add New Credential</h3>
+        <form method="POST" id="credential-form">
+            <input type="text" name="website" placeholder="Website" required>
+            <input type="text" name="site_username" placeholder="Site Username" required>
+            <div class="password-input-container">
+                <input type="text" name="site_password" id="password-field" placeholder="Site Password" required>
+                <button type="button" id="generate-password">Generate</button>
+            </div>
+            <button type="submit">Add Credential</button>
+        </form>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
