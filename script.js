@@ -1,4 +1,4 @@
-// script.js
+
 document.addEventListener('DOMContentLoaded', function() {
     const generateButton = document.getElementById('generate-password');
     const passwordField = document.getElementById('password-field');
