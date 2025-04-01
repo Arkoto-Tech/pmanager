@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # Retrieve DATABASE_URL from environment variable
-DATABASE_URL = os.getenv("DATABASE_URL")  # Make sure this is set in your environment
+DATABASE_URL = os.getenv("postgresql://postgres.ssojqqnicfcktsczyziv:[YOUR-PASSWORD]@aws-0-us-east-1.pooler.supabase.com:5432/postgres")  # Make sure this is set in your environment
 
 def get_db_connection():
     """Establish a connection to PostgreSQL."""
