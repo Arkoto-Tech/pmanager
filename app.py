@@ -3,6 +3,7 @@ import sqlite3
 import hashlib
 import os
 import base64
+import psycopg2
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -13,33 +14,33 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # Database file
-DATABASE = 'passwords.db'
+DATABASE_URL = os.getenv("postgresql://postgres:[YOUR-PASSWORD]@db.ssojqqnicfcktsczyziv.supabase.co:5432/postgres")
 
 def init_db():
-    with sqlite3.connect(DATABASE) as conn:
-        c = conn.cursor()
-        # Users table to store account information
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL
-            )
-        ''')
-        # Credentials table with a foreign key to users.id
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS credentials (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                website TEXT NOT NULL,
-                site_username TEXT NOT NULL,
-                site_password TEXT NOT NULL,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        ''')
-        conn.commit()
-
-init_db()
+    conn = psycopg2.connect(DATABASE_URL)
+    c = conn.cursor()
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL
+        )
+    ''')
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS credentials (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            website TEXT NOT NULL,
+            site_username TEXT NOT NULL,
+            site_password TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
 
 # Constant salt for key derivation – in production, use a secure, per‑user salt stored safely.
 SALT = b'some_constant_salt'
